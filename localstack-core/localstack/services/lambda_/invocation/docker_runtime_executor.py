@@ -287,8 +287,15 @@ class DockerRuntimeExecutor(RuntimeExecutor):
         LOG.debug("Assigning container name of %s to executor %s", self.container_name, self.id)
 
     def get_image(self) -> str:
+        if self.function_version.config.package_type == PackageType.Image:
+            if self.function_version.config.image and self.function_version.config.image.image_uri:
+                return self.function_version.config.image.image_uri
+            else:
+                raise ValueError("Package type is Image but no container image URI available")
+        
         if not self.function_version.config.runtime:
-            raise NotImplementedError("Container images are a Pro feature.")
+            raise ValueError("No runtime specified for Zip package type")
+            
         return (
             get_image_name_for_function(self.function_version)
             if config.LAMBDA_PREBUILD_IMAGES
@@ -312,15 +319,20 @@ class DockerRuntimeExecutor(RuntimeExecutor):
     def start(self, env_vars: dict[str, str]) -> None:
         self.executor_endpoint.start()
         main_network, *additional_networks = self._get_networks_for_executor()
+        entrypoint = None if self.function_version.config.package_type == PackageType.Image else RAPID_ENTRYPOINT
+        
         container_config = LambdaContainerConfiguration(
             image_name=None,
             name=self.container_name,
             env_vars=env_vars,
             network=main_network,
-            entrypoint=RAPID_ENTRYPOINT,
+            entrypoint=entrypoint,
             platform=docker_platform(self.function_version.config.architectures[0]),
             additional_flags=config.LAMBDA_DOCKER_FLAGS,
         )
+        
+        if self.function_version.config.package_type == PackageType.Image:
+            container_config.env_vars["_HANDLER"] = self.function_version.config.handler
 
         if self.function_version.config.package_type == PackageType.Zip:
             if self.function_version.config.code.is_hot_reloading():
@@ -391,8 +403,8 @@ class DockerRuntimeExecutor(RuntimeExecutor):
 
         CONTAINER_CLIENT.create_container_from_config(container_config)
         if (
-            not config.LAMBDA_PREBUILD_IMAGES
-            or self.function_version.config.package_type != PackageType.Zip
+            self.function_version.config.package_type == PackageType.Zip
+            and not config.LAMBDA_PREBUILD_IMAGES
         ):
             CONTAINER_CLIENT.copy_into_container(
                 self.container_name, f"{str(get_runtime_client_path())}/.", "/"
@@ -430,7 +442,8 @@ class DockerRuntimeExecutor(RuntimeExecutor):
             self.ip = "127.0.0.1"
         self.executor_endpoint.container_address = self.ip
 
-        self.executor_endpoint.wait_for_startup()
+        if self.function_version.config.package_type != PackageType.Image:
+            self.executor_endpoint.wait_for_startup()
 
     def stop(self) -> None:
         CONTAINER_CLIENT.stop_container(container_name=self.container_name, timeout=5)
@@ -462,6 +475,45 @@ class DockerRuntimeExecutor(RuntimeExecutor):
             truncate(json.dumps(payload), config.LAMBDA_TRUNCATE_STDOUT),
             self.id,
         )
+        
+        if self.function_version.config.package_type == PackageType.Image:
+            import requests
+            from localstack.services.lambda_.invocation.lambda_models import InvocationResult
+            
+            runtime_api_url = f"http://{self.ip}:8080/2015-03-31/functions/function/invocations"
+            
+            try:
+                response = requests.post(
+                    runtime_api_url,
+                    json=json.loads(payload["payload"]),
+                    headers={
+                        "Lambda-Runtime-Aws-Request-Id": payload["invoke-id"],
+                        "Lambda-Runtime-Invoked-Function-Arn": payload["invoked-function-arn"],
+                        "Lambda-Runtime-Trace-Id": payload.get("trace-id", ""),
+                    },
+                    timeout=self.function_version.config.timeout,
+                )
+                
+                logs = self.get_logs() if response.status_code >= 400 else ""
+                
+                return InvocationResult(
+                    request_id=payload["invoke-id"],
+                    payload=response.content,
+                    is_error=response.status_code >= 400,
+                    logs=logs,
+                    executed_version=None,
+                )
+                
+            except Exception as e:
+                LOG.error("Error invoking container image: %s", e)
+                return InvocationResult(
+                    request_id=payload["invoke-id"],
+                    payload=json.dumps({"errorMessage": str(e), "errorType": "InvocationError"}).encode(),
+                    is_error=True,
+                    logs=self.get_logs(),
+                    executed_version=None,
+                )
+        
         return self.executor_endpoint.invoke(payload)
 
     def get_logs(self) -> str:
