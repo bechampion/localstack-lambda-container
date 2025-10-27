@@ -38,7 +38,7 @@ jobs:
             echo "AWS_MAIN_LATEST_SCHEDULED_RUN_ID=${latest_run_id}" >> $GITHUB_ENV
 
         - name: Load test durations
-          uses: actions/download-artifact@v5
+          uses: actions/download-artifact@v6
           with:
             pattern: pytest-split-durations-${{ env.PLATFORM }}-*
             path: artifacts-test-durations
@@ -52,7 +52,7 @@ jobs:
             jq -s 'add | to_entries | sort_by(.key) | from_entries' artifacts-test-durations/.test_durations-${{ env.PLATFORM }}*  > localstack/.test_durations || echo "::warning::Test durations were not merged"
 
         - name: Upload artifact with merged test durations
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@v5
           if: ${{ success() && inputs.publishMethod == 'UPLOAD_ARTIFACT' }}
           with:
             name: merged-test-durations
