@@ -17,14 +17,14 @@ flowchart LR
         Client[Client]
     end
 
-    subgraph LocalStack Container
+    subgraph LocalStack["LocalStack Container"]
         direction TB
         API[ELBv2 API<br/>:4566]
         IPT[iptables<br/>DNAT + MASQUERADE]
         NLB_PORT[NLB Listener<br/>:80]
     end
 
-    subgraph Toxiproxy Container
+    subgraph Toxiproxy["Toxiproxy Container"]
         direction TB
         TOXI[Toxiproxy<br/>172.31.0.254:8080]
         UPSTREAM[Upstream Service]
@@ -46,13 +46,13 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    subgraph toxinetwork [toxinetwork - 172.31.0.0/16]
+    subgraph toxinetwork["toxinetwork - 172.31.0.0/16"]
         LS[LocalStack<br/>172.31.0.253]
         TP[Toxiproxy<br/>172.31.0.254]
         GW[Gateway<br/>172.31.0.1]
     end
 
-    subgraph default [default network]
+    subgraph defaultnet["default network"]
         LS2[LocalStack]
         OTHER[Other Services]
     end
