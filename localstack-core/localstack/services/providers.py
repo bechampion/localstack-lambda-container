@@ -440,3 +440,11 @@ def transcribe():
 
     provider = TranscribeProvider()
     return Service.for_provider(provider, dispatch_table_factory=MotoFallbackDispatcher)
+
+
+@aws_provider(api="elbv2")
+def elbv2():
+    from localstack.services.elbv2.provider import ELBv2Provider
+
+    provider = ELBv2Provider()
+    return Service.for_provider(provider)
