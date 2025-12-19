@@ -30,7 +30,7 @@ TARGET_IP = "172.31.0.254"
 class ELBv2Provider(ElasticLoadBalancingV2Api):
     """
     Minimal NLB implementation that uses iptables for actual traffic forwarding.
-    All traffic is forwarded to TARGET_IP (172.32.0.254).
+    All traffic is forwarded to TARGET_IP (172.31.0.254).
     """
 
     @staticmethod
@@ -58,6 +58,22 @@ class ELBv2Provider(ElasticLoadBalancingV2Api):
             ]
             subprocess.run(cmd_output, check=True, capture_output=True)
             
+            # MASQUERADE so return traffic comes back correctly
+            # Check first to avoid duplicates (using -C to check if rule exists)
+            cmd_check_masq = [
+                "iptables", "-t", "nat", "-C", "POSTROUTING",
+                "-d", TARGET_IP,
+                "-j", "MASQUERADE"
+            ]
+            result = subprocess.run(cmd_check_masq, capture_output=True)
+            if result.returncode != 0:  # Rule doesn't exist, add it
+                cmd_masq = [
+                    "iptables", "-t", "nat", "-A", "POSTROUTING",
+                    "-d", TARGET_IP,
+                    "-j", "MASQUERADE"
+                ]
+                subprocess.run(cmd_masq, check=True, capture_output=True)
+            
             LOG.info(f"Added iptables rule: :{listen_port} -> {TARGET_IP}:{target_port}")
             return True
         except subprocess.CalledProcessError as e:
@@ -80,6 +96,8 @@ class ELBv2Provider(ElasticLoadBalancingV2Api):
                 "-j", "DNAT", "--to-destination", f"{TARGET_IP}:{target_port}"
             ]
             subprocess.run(cmd_output, check=True, capture_output=True)
+            
+            # Note: We don't remove MASQUERADE rule as it's shared by all DNAT rules
             
             LOG.info(f"Removed iptables rule: :{listen_port} -> {TARGET_IP}:{target_port}")
             return True
