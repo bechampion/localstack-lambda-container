@@ -24,7 +24,7 @@ from localstack.services.elbv2.models import (
 LOG = logging.getLogger(__name__)
 
 # Fixed target IP for all forwarding rules
-TARGET_IP = "172.32.0.254"
+TARGET_IP = "172.31.0.254"
 
 
 class ELBv2Provider(ElasticLoadBalancingV2Api):
