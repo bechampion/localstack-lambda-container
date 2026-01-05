@@ -112,9 +112,16 @@ class ELBv2Provider(ElasticLoadBalancingV2Api):
                 tg_arn = action.get("TargetGroupArn")
                 tg = store.target_groups.get(tg_arn)
                 if tg:
-                    for target in tg.targets:
-                        self._add_iptables_rule(listener.port, target.port)
-                        store.iptables_rules[(listener.port, target.port)] = listener.arn
+                    if tg.targets:
+                        # Add rules for each registered target
+                        for target in tg.targets:
+                            self._add_iptables_rule(listener.port, target.port)
+                            store.iptables_rules[(listener.port, target.port)] = listener.arn
+                    else:
+                        # No targets yet - add rule using target group's default port
+                        self._add_iptables_rule(listener.port, tg.port)
+                        store.iptables_rules[(listener.port, tg.port)] = listener.arn
+                        LOG.info(f"Added iptables rule for listener (no targets yet): :{listener.port} -> {TARGET_IP}:{tg.port}")
 
     # ================== LOAD BALANCER OPERATIONS ==================
 
