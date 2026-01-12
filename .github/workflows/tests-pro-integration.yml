@@ -135,14 +135,14 @@ jobs:
           docker-images: false
 
       - name: Checkout Community
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: localstack
           fetch-depth: 0  # we need the additional commits to figure out the merge base for test selection
 
       - name: "Determine Companion Ref"
         id: determine-companion-ref
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.PRO_ACCESS_TOKEN }}
           result-encoding: string
@@ -198,7 +198,7 @@ jobs:
             return DEFAULT_REF
 
       - name: Checkout Pro
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: localstack/localstack-pro
           ref: ${{steps.determine-companion-ref.outputs.result}}
@@ -207,12 +207,12 @@ jobs:
 
       - name: Set up Python 3.11
         id: setup-python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Set up Node 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22.x
 
@@ -234,7 +234,7 @@ jobs:
 
       - name: Cache Pro Dependencies (venv)
         if: inputs.disableCaching != true
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             localstack-pro/.venv
@@ -245,7 +245,7 @@ jobs:
 
       - name: Cache Pro Dependencies (libs)
         if: inputs.disableCaching != true
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             localstack/localstack-core/.filesystem/var/lib/localstack
@@ -257,7 +257,7 @@ jobs:
       - name: Restore Lambda common runtime packages
         id: cached-lambda-common-restore
         if: inputs.disableCaching != true
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             localstack/tests/aws/services/lambda_/functions/common
@@ -269,7 +269,7 @@ jobs:
 
       - name: Save Lambda common runtime packages
         if: inputs.disableCaching != true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             localstack/tests/aws/services/lambda_/functions/common
@@ -347,7 +347,7 @@ jobs:
           make test
 
       - name: Archive Test Durations
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: success() || failure()
         with:
           name: pytest-split-durations-community-${{ matrix.group }}
@@ -356,7 +356,7 @@ jobs:
           retention-days: 5
 
       - name: Archive Test Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: success() || failure()
         with:
           name: test-results-community-${{ matrix.group }}
@@ -382,12 +382,12 @@ jobs:
       )
     steps:
       - name: Download Artifacts 1
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: test-results-community-1
 
       - name: Download Artifacts 2
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: test-results-community-2
 

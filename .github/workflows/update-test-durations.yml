@@ -23,7 +23,7 @@ jobs:
     name: "Download, merge and create PR with test durations"
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v5
+        - uses: actions/checkout@v6
           with:
             path: localstack
 
@@ -38,7 +38,7 @@ jobs:
             echo "AWS_MAIN_LATEST_SCHEDULED_RUN_ID=${latest_run_id}" >> $GITHUB_ENV
 
         - name: Load test durations
-          uses: actions/download-artifact@v5
+          uses: actions/download-artifact@v7
           with:
             pattern: pytest-split-durations-${{ env.PLATFORM }}-*
             path: artifacts-test-durations
@@ -52,7 +52,7 @@ jobs:
             jq -s 'add | to_entries | sort_by(.key) | from_entries' artifacts-test-durations/.test_durations-${{ env.PLATFORM }}*  > localstack/.test_durations || echo "::warning::Test durations were not merged"
 
         - name: Upload artifact with merged test durations
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@v6
           if: ${{ success() && inputs.publishMethod == 'UPLOAD_ARTIFACT' }}
           with:
             name: merged-test-durations
@@ -61,7 +61,7 @@ jobs:
             if-no-files-found: error
 
         - name: Create PR
-          uses: peter-evans/create-pull-request@v7
+          uses: peter-evans/create-pull-request@v8
           if: ${{ success() && inputs.publishMethod != 'UPLOAD_ARTIFACT' }}
           with:
             title: "[Testing] Update test durations"
